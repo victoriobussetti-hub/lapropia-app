@@ -482,11 +482,23 @@ tr:hover td{background:rgba(255,255,255,.018);}
 </div>
 
 <!-- FIREBASE SDK -->
-<script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+<script>
+// Firebase loaded via dynamic import to avoid module scope issues with onclick handlers
+var _fbReady = Promise.all([
+  import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'),
+  import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js')
+]).then(function(modules) {
+  var initializeApp = modules[0].initializeApp;
+  var firestoreModule = modules[1];
+  var getFirestore = firestoreModule.getFirestore;
+  var collection = firestoreModule.collection;
+  var doc = firestoreModule.doc;
+  var setDoc = firestoreModule.setDoc;
+  var deleteDoc = firestoreModule.deleteDoc;
+  var onSnapshot = firestoreModule.onSnapshot;
+  var getDoc = firestoreModule.getDoc;
 
-const firebaseConfig = {
+var firebaseConfig = {
   apiKey: "AIzaSyCYXWFqCI4_hUm0BofBqgTtL_UHalAmBj0",
   authDomain: "lapropiaprod-3d19f.firebaseapp.com",
   projectId: "lapropiaprod-3d19f",
@@ -495,8 +507,8 @@ const firebaseConfig = {
   appId: "1:359620103634:web:d15dd65c9605b7fea48c0b"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+var app = initializeApp(firebaseConfig);
+var db = getFirestore(app);
 
 // ===== STATE =====
 var S = {
@@ -642,23 +654,54 @@ function syncGSel(){var s=document.getElementById('g-pres');s.innerHTML='<option
 function syncTrSel(){var s=document.getElementById('tr-cli');s.innerHTML='<option value="">- Sin cliente -</option>'+S.clientes.map(function(c){return '<option value="'+c.id+'">'+c.nombre+'</option>';}).join('');}
 
 // ===== PRES FORM =====
-window.addRolBtn=function(nom){var t=S.tarifas[nom]||0;presRoles.push({id:uid(),nombre:nom,cantidad:1,horas:0,tarifa:t,moneda:'ARS',visible:true});renderForm();};
-window.addEqBtn=function(nom,f){presEq.push({id:uid(),nombre:nom,monto:0,moneda:'ARS',fuente:f,visible:true});renderForm();};
-window.addExBtn=function(nom){presEx.push({id:uid(),nombre:nom,monto:0,moneda:'ARS',visible:true});renderForm();};
-window.rmR=function(id){presRoles=presRoles.filter(function(r){return r.id!==id;});renderForm();recalc();};
-window.rmE=function(id){presEq=presEq.filter(function(e){return e.id!==id;});renderForm();recalc();};
-window.rmX=function(id){presEx=presEx.filter(function(e){return e.id!==id;});renderForm();recalc();};
+window.addRolBtn=function(nom){saveFormState();var t=S.tarifas[nom]||0;presRoles.push({id:uid(),nombre:nom,cantidad:1,horas:0,tarifa:t,moneda:'ARS',visible:true});renderForm();};
+window.addEqBtn=function(nom,f){saveFormState();presEq.push({id:uid(),nombre:nom,monto:0,moneda:'ARS',fuente:f,visible:true});renderForm();};
+window.addExBtn=function(nom){saveFormState();presEx.push({id:uid(),nombre:nom,monto:0,moneda:'ARS',visible:true});renderForm();};
+window.rmR=function(id){saveFormState();presRoles=presRoles.filter(function(r){return r.id!==id;});renderForm();recalc();};
+window.rmE=function(id){saveFormState();presEq=presEq.filter(function(e){return e.id!==id;});renderForm();recalc();};
+window.rmX=function(id){saveFormState();presEx=presEx.filter(function(e){return e.id!==id;});renderForm();recalc();};
 window.upd=function(arr,id,key,val){var it=arr.find(function(i){return i.id===id;});if(it)it[key]=val;};
 
+window.saveFormState = function saveFormState(){
+  // Save current DOM input values back to arrays before re-rendering
+  presRoles.forEach(function(r){
+    var nEl=document.querySelector('[data-rid="'+r.id+'"][data-field="nombre"]');
+    var cEl=document.querySelector('[data-rid="'+r.id+'"][data-field="cantidad"]');
+    var hEl=document.querySelector('[data-rid="'+r.id+'"][data-field="horas"]');
+    var tEl=document.querySelector('[data-rid="'+r.id+'"][data-field="tarifa"]');
+    var mEl=document.querySelector('[data-rid="'+r.id+'"][data-field="moneda"]');
+    if(nEl)r.nombre=nEl.value;
+    if(cEl)r.cantidad=+cEl.value||r.cantidad;
+    if(hEl)r.horas=+hEl.value||0;
+    if(tEl)r.tarifa=+tEl.value||0;
+    if(mEl)r.moneda=mEl.value;
+  });
+  presEq.forEach(function(e){
+    var nEl=document.querySelector('[data-eid="'+e.id+'"][data-field="nombre"]');
+    var mEl=document.querySelector('[data-eid="'+e.id+'"][data-field="monto"]');
+    var curEl=document.querySelector('[data-eid="'+e.id+'"][data-field="moneda"]');
+    if(nEl)e.nombre=nEl.value;
+    if(mEl)e.monto=+mEl.value||0;
+    if(curEl)e.moneda=curEl.value;
+  });
+  presEx.forEach(function(x){
+    var nEl=document.querySelector('[data-xid="'+x.id+'"][data-field="nombre"]');
+    var mEl=document.querySelector('[data-xid="'+x.id+'"][data-field="monto"]');
+    var curEl=document.querySelector('[data-xid="'+x.id+'"][data-field="moneda"]');
+    if(nEl)x.nombre=nEl.value;
+    if(mEl)x.monto=+mEl.value||0;
+    if(curEl)x.moneda=curEl.value;
+  });
+}
 function renderForm(){
   var rc=document.getElementById('rcont');
   rc.innerHTML=presRoles.length?presRoles.map(function(r){
     return '<div class="ir ir-rol">'+
-      '<input type="text" value="'+r.nombre+'" onchange="upd(presRoles,\''+r.id+'\',\'nombre\',this.value)" placeholder="Rol">'+
-      '<input type="number" min="1" value="'+r.cantidad+'" oninput="upd(presRoles,\''+r.id+'\',\'cantidad\',+this.value);recalc()">'+
-      '<input type="number" min="0" value="'+r.horas+'" oninput="upd(presRoles,\''+r.id+'\',\'horas\',+this.value);recalc()">'+
-      '<input type="number" min="0" value="'+r.tarifa+'" oninput="upd(presRoles,\''+r.id+'\',\'tarifa\',+this.value);recalc()">'+
-      '<select onchange="upd(presRoles,\''+r.id+'\',\'moneda\',this.value);recalc()" style="font-size:11px;">'+
+      '<input type="text" value="'+r.nombre+'" data-rid="'+r.id+'" data-field="nombre" placeholder="Rol">'+
+      '<input type="number" min="1" value="'+r.cantidad+'" data-rid="'+r.id+'" data-field="cantidad" oninput="recalc()">'+
+      '<input type="number" min="0" value="'+r.horas+'" data-rid="'+r.id+'" data-field="horas" oninput="recalc()">'+
+      '<input type="number" min="0" value="'+r.tarifa+'" data-rid="'+r.id+'" data-field="tarifa" oninput="recalc()">'+
+      '<select data-rid="'+r.id+'" data-field="moneda" onchange="recalc()" style="font-size:11px;">'+
       '<option value="ARS"'+(r.moneda==='ARS'?' selected':'')+'>ARS</option>'+
       '<option value="USD"'+(r.moneda==='USD'?' selected':'')+'>USD</option></select>'+
       '<button class="rbtn" onclick="rmR(\''+r.id+'\')">x</button></div>';
@@ -667,10 +710,10 @@ function renderForm(){
   var ec=document.getElementById('econt');
   ec.innerHTML=presEq.length?presEq.map(function(e){
     return '<div class="ir ir-eq">'+
-      '<div class="erel"><input type="text" value="'+e.nombre+'" id="ei-'+e.id+'" onchange="upd(presEq,\''+e.id+'\',\'nombre\',this.value)" oninput="filterCat(this,\''+e.id+'\')">'+
+      '<div class="erel"><input type="text" value="'+e.nombre+'" id="ei-'+e.id+'" data-eid="'+e.id+'" data-field="nombre" oninput="filterCat(this,\''+e.id+'\')">'+
       '<div id="ed-'+e.id+'" class="edrop"></div></div>'+
-      '<input type="number" min="0" value="'+e.monto+'" oninput="upd(presEq,\''+e.id+'\',\'monto\',+this.value);recalc()">'+
-      '<select onchange="upd(presEq,\''+e.id+'\',\'moneda\',this.value);recalc()" style="font-size:11px;">'+
+      '<input type="number" min="0" value="'+e.monto+'" data-eid="'+e.id+'" data-field="monto" oninput="recalc()">'+
+      '<select data-eid="'+e.id+'" data-field="moneda" onchange="recalc()" style="font-size:11px;">'+
       '<option value="ARS"'+(e.moneda==='ARS'?' selected':'')+'>ARS</option>'+
       '<option value="USD"'+(e.moneda==='USD'?' selected':'')+'>USD</option></select>'+
       '<button class="rbtn" onclick="rmE(\''+e.id+'\')">x</button></div>';
@@ -679,9 +722,9 @@ function renderForm(){
   var xc=document.getElementById('xcont');
   xc.innerHTML=presEx.length?presEx.map(function(x){
     return '<div class="ir ir-eq">'+
-      '<input type="text" value="'+x.nombre+'" onchange="upd(presEx,\''+x.id+'\',\'nombre\',this.value)" placeholder="Concepto">'+
-      '<input type="number" min="0" value="'+x.monto+'" oninput="upd(presEx,\''+x.id+'\',\'monto\',+this.value);recalc()">'+
-      '<select onchange="upd(presEx,\''+x.id+'\',\'moneda\',this.value);recalc()" style="font-size:11px;">'+
+      '<input type="text" value="'+x.nombre+'" data-xid="'+x.id+'" data-field="nombre" placeholder="Concepto">'+
+      '<input type="number" min="0" value="'+x.monto+'" data-xid="'+x.id+'" data-field="monto" oninput="recalc()">'+
+      '<select data-xid="'+x.id+'" data-field="moneda" onchange="recalc()" style="font-size:11px;">'+
       '<option value="ARS"'+(x.moneda==='ARS'?' selected':'')+'>ARS</option>'+
       '<option value="USD"'+(x.moneda==='USD'?' selected':'')+'>USD</option></select>'+
       '<button class="rbtn" onclick="rmX(\''+x.id+'\')">x</button></div>';
@@ -717,8 +760,25 @@ document.addEventListener('click',function(e){
 
 window.recalc=function(){
   var a=0,u=0;
-  presRoles.forEach(function(r){var s=r.cantidad*r.horas*r.tarifa;r.moneda==='ARS'?a+=s:u+=s;});
-  presEq.concat(presEx).forEach(function(x){x.moneda==='ARS'?a+=x.monto:u+=x.monto;});
+  presRoles.forEach(function(r){
+    var hEl=document.querySelector('[data-rid="'+r.id+'"][data-field="horas"]');
+    var tEl=document.querySelector('[data-rid="'+r.id+'"][data-field="tarifa"]');
+    var cEl=document.querySelector('[data-rid="'+r.id+'"][data-field="cantidad"]');
+    var mEl=document.querySelector('[data-rid="'+r.id+'"][data-field="moneda"]');
+    var h=hEl?+hEl.value:r.horas;
+    var t=tEl?+tEl.value:r.tarifa;
+    var c=cEl?+cEl.value:r.cantidad;
+    var m=mEl?mEl.value:r.moneda;
+    var s=c*h*t;m==='ARS'?a+=s:u+=s;
+  });
+  presEq.concat(presEx).forEach(function(x){
+    var isEq=presEq.indexOf(x)>=0;
+    var mEl=isEq?document.querySelector('[data-eid="'+x.id+'"][data-field="monto"]'):document.querySelector('[data-xid="'+x.id+'"][data-field="monto"]');
+    var curEl=isEq?document.querySelector('[data-eid="'+x.id+'"][data-field="moneda"]'):document.querySelector('[data-xid="'+x.id+'"][data-field="moneda"]');
+    var monto=mEl?+mEl.value:x.monto;
+    var moneda=curEl?curEl.value:x.moneda;
+    moneda==='ARS'?a+=monto:u+=monto;
+  });
   var m=parseFloat(document.getElementById('p-mg')?document.getElementById('p-mg').value:30)/100;
   if(document.getElementById('t-ars'))document.getElementById('t-ars').textContent=fARS(a);
   if(document.getElementById('t-usd'))document.getElementById('t-usd').textContent=fUSD(u);
@@ -729,6 +789,7 @@ window.recalc=function(){
 
 // ===== GUARDAR =====
 window.guardarPres=async function(){
+  saveFormState();
   var nom=document.getElementById('p-nom').value.trim();
   if(!nom){alert('Ingresa un nombre');return;}
   var a=0,u=0;
@@ -1078,5 +1139,6 @@ window.renderAdminCatalog=function(){
 // INIT
 initListeners();
 render();
+}); // end _fbReady
 </script>
 </body></html>
