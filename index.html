@@ -397,7 +397,7 @@ tr:hover td{background:rgba(255,255,255,.018);}
 
 <div class="mol" id="m-cli">
 <div class="mbox">
-  <div class="mt">Nuevo cliente</div>
+  <div class="mt" id="m-cli-title">Nuevo cliente</div>
   <div class="fr"><label>Empresa / Nombre</label><input id="c-nom" placeholder="Ej: Agencia Creativa SRL"></div>
   <div class="g2">
     <div class="fr"><label>Contacto</label><input id="c-con" placeholder="Nombre del contacto"></div>
@@ -412,7 +412,7 @@ tr:hover td{background:rgba(255,255,255,.018);}
   <div class="fr"><label>Notas</label><textarea id="c-not" rows="2" placeholder="Info adicional..."></textarea></div>
   <div class="mac">
     <button class="btn btn-gh" onclick="closeModal('m-cli')">Cancelar</button>
-    <button class="btn btn-gd" onclick="guardarCliente()">Guardar cliente</button>
+    <button class="btn btn-gd" id="m-cli-btn" onclick="guardarCliente()">Guardar cliente</button>
   </div>
 </div>
 </div>
@@ -670,7 +670,13 @@ window.switchTab = function(t,el){
 window.openModal = function(id){
   if(id==='m-pres'){presRoles=[];presEq=[];presEx=[];renderForm();syncCliSel();recalc();document.getElementById('p-nom').value='';document.getElementById('p-mg').value='30';}
   if(id==='m-gasto'){document.getElementById('g-fecha').value=today();syncGSel();['g-desc','g-monto'].forEach(function(i){document.getElementById(i).value='';});document.getElementById('g-enc').checked=false;document.getElementById('g-enc-det').style.display='none';}
-  if(id==='m-cli'){['c-nom','c-con','c-mail','c-tel','c-not'].forEach(function(i){document.getElementById(i).value='';});}
+  if(id==='m-cli'){
+    ['c-nom','c-con','c-mail','c-tel','c-not'].forEach(function(i){document.getElementById(i).value='';});
+    document.getElementById('m-cli-title').textContent='Nuevo cliente';
+    var btn=document.getElementById('m-cli-btn');
+    btn.textContent='Guardar cliente';
+    btn.removeAttribute('data-edit-id');
+  }
   if(id==='m-trab'){document.getElementById('tr-fi').value=today();syncTrSel();['tr-nom','tr-mon','tr-not'].forEach(function(i){document.getElementById(i).value='';});}
   if(id==='m-additem'){['ai-nom','ai-prc'].forEach(function(i){document.getElementById(i).value='';});}
   document.getElementById(id).classList.add('open');
@@ -843,9 +849,46 @@ window.guardarGasto=async function(){
 window.guardarCliente=async function(){
   var nom=document.getElementById('c-nom').value.trim();
   if(!nom){alert('Ingresa un nombre');return;}
-  var id=uid();
-  await fbSave('clientes',id,{id:id,nombre:nom,contacto:document.getElementById('c-con').value,email:document.getElementById('c-mail').value,tel:document.getElementById('c-tel').value,rubro:document.getElementById('c-rub').value,notas:document.getElementById('c-not').value,fecha:today()});
+  var editId=document.getElementById('m-cli-btn').dataset.editId;
+  if(editId){
+    // Editing existing client
+    var existing=S.clientes.find(function(c){return c.id===editId;});
+    var data=Object.assign({},existing,{
+      nombre:nom,
+      contacto:document.getElementById('c-con').value,
+      email:document.getElementById('c-mail').value,
+      tel:document.getElementById('c-tel').value,
+      rubro:document.getElementById('c-rub').value,
+      notas:document.getElementById('c-not').value
+    });
+    await fbSave('clientes',editId,data);
+    document.getElementById('m-cli-btn').removeAttribute('data-edit-id');
+  } else {
+    // New client
+    var id=uid();
+    await fbSave('clientes',id,{id:id,nombre:nom,contacto:document.getElementById('c-con').value,email:document.getElementById('c-mail').value,tel:document.getElementById('c-tel').value,rubro:document.getElementById('c-rub').value,notas:document.getElementById('c-not').value,fecha:today()});
+  }
   closeModal('m-cli');
+};
+
+window.editarCliente=function(id){
+  var c=S.clientes.find(function(x){return x.id===id;});
+  if(!c)return;
+  document.getElementById('m-cli-title').textContent='Editar cliente';
+  document.getElementById('c-nom').value=c.nombre||'';
+  document.getElementById('c-con').value=c.contacto||'';
+  document.getElementById('c-mail').value=c.email||'';
+  document.getElementById('c-tel').value=c.tel||'';
+  document.getElementById('c-not').value=c.notas||'';
+  // Set rubro
+  var rubSel=document.getElementById('c-rub');
+  for(var i=0;i<rubSel.options.length;i++){
+    if(rubSel.options[i].value===c.rubro){rubSel.selectedIndex=i;break;}
+  }
+  var btn=document.getElementById('m-cli-btn');
+  btn.textContent='Guardar cambios';
+  btn.dataset.editId=id;
+  document.getElementById('m-cli').classList.add('open');
 };
 
 window.guardarTrabajo=async function(){
@@ -1077,7 +1120,9 @@ function renderClientes(){
     return '<div class="card" style="position:relative">'+
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><div class="cav">'+ini+'</div>'+
       '<div><div style="font-weight:600;font-size:14px;">'+c.nombre+'</div><div style="font-size:11px;color:var(--mu)">'+c.rubro+'</div></div>'+
-      '<button class="btn btn-dr btn-xs" style="margin-left:auto" onclick="delC(\''+c.id+'\')">x</button></div>'+
+      '<div style="margin-left:auto;display:flex;gap:6px;">'+
+      '<button class="btn btn-gh btn-xs" onclick="editarCliente(\''+c.id+'\')">Editar</button>'+
+      '<button class="btn btn-dr btn-xs" onclick="delC(\''+c.id+'\')">x</button></div></div>'+
       '<div style="display:flex;flex-direction:column;gap:4px;font-size:12px;margin-bottom:12px;">'+
       (c.contacto?'<div style="color:var(--mu2)">Contacto: '+c.contacto+'</div>':'')+
       (c.email?'<div style="color:var(--blue)">Mail: '+c.email+'</div>':'')+
