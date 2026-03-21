@@ -268,7 +268,7 @@ tr:hover td{background:rgba(255,255,255,.018);}
 <!-- MODALES -->
 <div class="mol" id="m-pres">
 <div class="mbox" style="max-width:820px;">
-  <div class="mt">Nuevo presupuesto</div>
+  <div class="mt" id="m-pres-title">Nuevo presupuesto</div>
   <div class="g2" style="margin-bottom:12px;">
     <div class="fr" style="margin:0"><label>Nombre del proyecto</label><input id="p-nom" placeholder="Ej: Spot TV Marca X"></div>
     <div class="fr" style="margin:0"><label>Cliente</label><select id="p-cli"><option value="">- Sin asignar -</option></select></div>
@@ -348,7 +348,7 @@ tr:hover td{background:rgba(255,255,255,.018);}
   </div>
   <div class="mac">
     <button class="btn btn-gh" onclick="closeModal('m-pres')">Cancelar</button>
-    <button class="btn btn-gd" onclick="guardarPres()">Guardar presupuesto</button>
+    <button class="btn btn-gd" id="pres-save-btn" onclick="guardarPres()">Guardar presupuesto</button>
   </div>
 </div>
 </div>
@@ -668,7 +668,18 @@ window.switchTab = function(t,el){
 
 // ===== MODALS =====
 window.openModal = function(id){
-  if(id==='m-pres'){presRoles=[];presEq=[];presEx=[];renderForm();syncCliSel();recalc();document.getElementById('p-nom').value='';document.getElementById('p-mg').value='30';}
+  if(id==='m-pres'){
+    presRoles=[];presEq=[];presEx=[];
+    renderForm();syncCliSel();recalc();
+    document.getElementById('p-nom').value='';
+    document.getElementById('p-mg').value='30';
+    document.getElementById('p-dias').value='1';
+    document.getElementById('p-hs').value='8';
+    var saveBtn=document.getElementById('pres-save-btn');
+    if(saveBtn){saveBtn.textContent='Guardar presupuesto';saveBtn.removeAttribute('data-edit-id');}
+    var title=document.getElementById('m-pres-title');
+    if(title)title.textContent='Nuevo presupuesto';
+  }
   if(id==='m-gasto'){document.getElementById('g-fecha').value=today();syncGSel();['g-desc','g-monto'].forEach(function(i){document.getElementById(i).value='';});document.getElementById('g-enc').checked=false;document.getElementById('g-enc-det').style.display='none';}
   if(id==='m-cli'){
     ['c-nom','c-con','c-mail','c-tel','c-not'].forEach(function(i){document.getElementById(i).value='';});
@@ -831,9 +842,35 @@ window.guardarPres=async function(){
   presRoles.forEach(function(r){var s=r.cantidad*r.horas*r.tarifa;r.moneda==='ARS'?a+=s:u+=s;});
   presEq.concat(presEx).forEach(function(x){x.moneda==='ARS'?a+=x.monto:u+=x.monto;});
   var mg=parseFloat(document.getElementById('p-mg').value||30);
-  var id=uid();
-  var data={id:id,nombre:nom,cliente:document.getElementById('p-cli').value,tipo:document.getElementById('p-tipo').value,dias:+document.getElementById('p-dias').value,horas:+document.getElementById('p-hs').value,roles:JSON.parse(JSON.stringify(presRoles)),equipos:JSON.parse(JSON.stringify(presEq)),extras:JSON.parse(JSON.stringify(presEx)),arsTotal:a,usdTotal:u,margen:mg,totalFinal:a*(1+mg/100),estado:'pendiente',fecha:today()};
-  await fbSave('presupuestos',id,data);
+  var saveBtn=document.getElementById('pres-save-btn');
+  var editId=saveBtn?saveBtn.dataset.editId:null;
+
+  if(editId){
+    // Editing existing presupuesto - keep original fecha and estado
+    var existing=S.presupuestos.find(function(p){return p.id===editId;});
+    var data={
+      id:editId,
+      nombre:nom,
+      cliente:document.getElementById('p-cli').value,
+      tipo:document.getElementById('p-tipo').value,
+      dias:+document.getElementById('p-dias').value,
+      horas:+document.getElementById('p-hs').value,
+      roles:JSON.parse(JSON.stringify(presRoles)),
+      equipos:JSON.parse(JSON.stringify(presEq)),
+      extras:JSON.parse(JSON.stringify(presEx)),
+      arsTotal:a, usdTotal:u, margen:mg,
+      totalFinal:a*(1+mg/100),
+      estado:existing?existing.estado:'pendiente',
+      fecha:existing?existing.fecha:today()
+    };
+    await fbSave('presupuestos',editId,data);
+    saveBtn.removeAttribute('data-edit-id');
+  } else {
+    // New presupuesto
+    var id=uid();
+    var data={id:id,nombre:nom,cliente:document.getElementById('p-cli').value,tipo:document.getElementById('p-tipo').value,dias:+document.getElementById('p-dias').value,horas:+document.getElementById('p-hs').value,roles:JSON.parse(JSON.stringify(presRoles)),equipos:JSON.parse(JSON.stringify(presEq)),extras:JSON.parse(JSON.stringify(presEx)),arsTotal:a,usdTotal:u,margen:mg,totalFinal:a*(1+mg/100),estado:'pendiente',fecha:today()};
+    await fbSave('presupuestos',id,data);
+  }
   closeModal('m-pres');
 };
 
@@ -944,9 +981,50 @@ window.verPres=function(id){
     '<button class="btn btn-gh btn-sm" onclick="chgEst(\''+p.id+'\',\'aprobado\')">Aprobar</button>'+
     '<button class="btn btn-gh btn-sm" onclick="chgEst(\''+p.id+'\',\'rechazado\')">Rechazar</button>'+
     '<button class="btn btn-gh btn-sm" onclick="chgEst(\''+p.id+'\',\'pendiente\')">Pendiente</button>'+
+    '<button class="btn btn-gd btn-sm" onclick="editarPres(\''+p.id+'\')">Editar</button>'+
     '<button class="btn btn-dr btn-sm" onclick="delPres(\''+p.id+'\')">Eliminar</button></div>';
   document.getElementById('det-content').innerHTML=h;
   document.getElementById('m-det').classList.add('open');
+};
+
+window.editarPres=function(id){
+  var p=S.presupuestos.find(function(x){return x.id===id;});
+  if(!p)return;
+  closeModal('m-det');
+
+  // Load data into form
+  presRoles=JSON.parse(JSON.stringify(p.roles||[]));
+  presEq=JSON.parse(JSON.stringify(p.equipos||[]));
+  presEx=JSON.parse(JSON.stringify(p.extras||[]));
+
+  // Mark as edit mode
+  document.getElementById('p-nom').value=p.nombre||'';
+  document.getElementById('p-mg').value=p.margen||30;
+  document.getElementById('p-dias').value=p.dias||1;
+  document.getElementById('p-hs').value=p.horas||8;
+
+  // Set cliente
+  syncCliSel();
+  var cliSel=document.getElementById('p-cli');
+  for(var i=0;i<cliSel.options.length;i++){
+    if(cliSel.options[i].value===p.cliente){cliSel.selectedIndex=i;break;}
+  }
+
+  // Set tipo
+  var tipoSel=document.getElementById('p-tipo');
+  for(var j=0;j<tipoSel.options.length;j++){
+    if(tipoSel.options[j].value===p.tipo||tipoSel.options[j].text===p.tipo){tipoSel.selectedIndex=j;break;}
+  }
+
+  renderForm();
+  recalc();
+
+  // Mark modal as edit mode
+  var saveBtn=document.getElementById('pres-save-btn');
+  saveBtn.textContent='Guardar cambios';
+  saveBtn.dataset.editId=id;
+  document.getElementById('m-pres-title').textContent='Editar presupuesto';
+  document.getElementById('m-pres').classList.add('open');
 };
 
 window.chgEst=async function(id,est){
