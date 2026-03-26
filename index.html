@@ -278,19 +278,33 @@ document.addEventListener('DOMContentLoaded', function(){
 <div class="panel" id="panel-analytics">
   <div class="sh"><div><div class="st">Analytics</div><div class="ss">Inteligencia interna de La Propia</div></div></div>
   <div class="krow">
-    <div class="kpi"><div class="kl">Margen promedio</div><div class="kv gd" id="an-mg">0%</div></div>
+    <div class="kpi"><div class="kl">Total cobrado</div><div class="kv gr" id="an-cobrado">$0</div></div>
+    <div class="kpi"><div class="kl">Total gastos</div><div class="kv rd" id="an-gast">$0</div></div>
+    <div class="kpi"><div class="kl">Balance neto</div><div class="kv gd" id="an-balance">$0</div></div>
+    <div class="kpi"><div class="kl">Margen promedio</div><div class="kv am" id="an-mg">0%</div></div>
+  </div>
+  <div class="krow">
     <div class="kpi"><div class="kl">Cliente mas activo</div><div class="kv" id="an-cl" style="font-size:13px;color:var(--tx)">-</div></div>
     <div class="kpi"><div class="kl">Item mas alquilado</div><div class="kv" id="an-eq" style="font-size:12px;color:#f0a030">-</div></div>
     <div class="kpi"><div class="kl">Total en Enchulame</div><div class="kv am" id="an-en">$0</div></div>
+    <div class="kpi"><div class="kl">Cobros registrados</div><div class="kv bl" id="an-ncobros">0</div></div>
   </div>
   <div class="arow">
+    <div class="card"><div class="ct">Distribucion de cobros por categoria</div><div id="ch-dist"><div style="font-size:12px;color:var(--mu)">Sin cobros registrados aun</div></div></div>
     <div class="card"><div class="ct">Gastos por categoria</div><div id="ch-cat"></div></div>
+  </div>
+  <div class="arow">
     <div class="card"><div class="ct">Trabajos por cliente</div><div id="ch-cli"></div></div>
+    <div class="card"><div class="ct">Cobros recientes</div><div id="ch-cobros-list"></div></div>
   </div>
   <div class="card">
     <div class="ct">Enchulame - conviene comprar?</div>
     <div id="ch-enc"></div>
     <div class="empty" id="en-empty" style="padding:24px"><div class="ei">&#x1F4F7;</div><p style="font-size:12px">Registra gastos de Enchulame para ver el analisis</p></div>
+  </div>
+  <div class="card">
+    <div class="ct">Finanzas — cobros y distribucion</div>
+    <div id="an-cobros"><div class="empty" style="padding:24px"><div class="ei">&#x1F4B0;</div><p style="font-size:12px">Cuando registres cobros apareceran aca con el balance y la distribucion por categoria</p></div></div>
   </div>
 </div>
 
@@ -302,6 +316,13 @@ document.addEventListener('DOMContentLoaded', function(){
     <div class="admin-grid" id="admin-roles-grid"></div>
     <button class="btn btn-gd btn-sm" onclick="guardarTarifas()">Guardar tarifas</button>
   </div>
+  <div class="card">
+    <div class="ct">Categorias de distribucion de cobro</div>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:14px;">Estas son las categorias donde distribuís cada cobro. Podes crear las que quieras (personas del equipo, equipos, etc.).</div>
+    <div id="admin-cat-cobro-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;"></div>
+    <button class="btn btn-gh btn-sm" onclick="openModal('m-cat-cobro')">+ Nueva categoria</button>
+  </div>
+
   <div class="card">
     <div class="ct">Catalogo Enchulame - precios editables</div>
     <div style="font-size:12px;color:var(--mu);margin-bottom:14px;">Edita los precios y se actualizan en el buscador del presupuesto. Se guardan en Firebase.</div>
@@ -320,6 +341,15 @@ document.addEventListener('DOMContentLoaded', function(){
     <div style="margin-top:12px;display:flex;gap:8px;">
       <button class="btn btn-gd btn-sm" onclick="guardarCatalogo()">Guardar precios en Firebase</button>
       <button class="btn btn-gh btn-sm" onclick="openModal('m-additem')">+ Agregar item</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">Categorias de distribucion de cobros</div>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:14px;">Estas categorias aparecen al registrar un cobro para distribuir el monto entre personas y conceptos.</div>
+    <div id="admin-cats-cobro-list" style="margin-bottom:12px;"></div>
+    <div style="display:flex;gap:8px;">
+      <input id="admin-cats-cobro-input" placeholder="Ej: Augusto, Luke, Felipe, Equipos..." style="font-size:12px;" onkeydown="if(event.key==='Enter')guardarCatsCobro()">
+      <button class="btn btn-gd btn-sm" style="white-space:nowrap;" onclick="guardarCatsCobro()">+ Agregar</button>
     </div>
   </div>
 </div>
@@ -520,6 +550,80 @@ document.addEventListener('DOMContentLoaded', function(){
 </div>
 </div>
 
+<!-- COBRO MODAL -->
+<div class="mol" id="m-cobro">
+<div class="mbox" style="max-width:640px;">
+  <div class="mt">Registrar Cobro</div>
+  <div style="background:var(--sf2);border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;">
+    <div><div style="font-size:11px;color:var(--mu);font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Presupuesto</div>
+    <div id="cobro-pres-nombre" style="font-weight:600;margin-top:2px;"></div></div>
+    <div style="text-align:right;"><div style="font-size:11px;color:var(--mu)">Total presupuestado</div>
+    <div id="cobro-pres-total" style="font-family:Courier New,monospace;font-weight:700;color:var(--gold);"></div></div>
+  </div>
+  <div class="g2" style="margin-bottom:14px;">
+    <div class="fr" style="margin:0"><label>Monto cobrado (ARS)</label><input type="number" id="cobro-monto" oninput="renderCobroDistribucion(0)" style="font-weight:700;font-size:16px;color:var(--green);"></div>
+    <div class="fr" style="margin:0"><label>Fecha de cobro</label><input type="date" id="cobro-fecha"></div>
+  </div>
+  <div class="fr"><label>Nota (opcional)</label><input id="cobro-nota" placeholder="Ej: Transferencia recibida"></div>
+  <div style="margin-bottom:14px;">
+    <div class="pst">Distribucion del cobro</div>
+    <div style="font-size:11px;color:var(--mu);margin-bottom:10px;">Ingresa cuanto va a cada categoria. Podes dejar sin asignar.</div>
+    <div id="cobro-dist-cont"></div>
+  </div>
+  <div class="mac">
+    <button class="btn btn-gh" onclick="closeModal('m-cobro')">Cancelar</button>
+    <button class="btn btn-gd" onclick="guardarCobro()">Confirmar cobro</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL COBRO -->
+<div class="mol" id="m-cobro">
+<div class="mbox" style="max-width:600px;">
+  <div class="mt">Registrar cobro</div>
+  <div id="cobro-pres-info" style="background:var(--sf2);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:13px;"></div>
+  <div class="g2" style="margin-bottom:14px;">
+    <div class="fr" style="margin:0"><label>Monto cobrado (ARS)</label><input type="number" id="cobro-monto" placeholder="0" oninput="updCobroDistribucion()"></div>
+    <div class="fr" style="margin:0"><label>Fecha de cobro</label><input type="date" id="cobro-fecha"></div>
+  </div>
+  <div style="margin-bottom:14px;">
+    <div class="pst">Distribucion del cobro</div>
+    <div style="font-size:11px;color:var(--mu);margin-bottom:10px;">Distribuí el monto entre las categorías. Podés usar % o monto fijo. El resto sin asignar queda como "Sin distribuir".</div>
+    <div id="cobro-dist-rows"></div>
+    <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--sf2);border-radius:6px;font-size:12px;">
+      <span style="color:var(--mu)">Sin distribuir</span>
+      <span id="cobro-sin-dist" style="font-family:Courier New,monospace;font-weight:700;color:var(--gold);">$ 0</span>
+    </div>
+  </div>
+  <div class="mac">
+    <button class="btn btn-gh" onclick="closeModal('m-cobro')">Cancelar</button>
+    <button class="btn btn-gd" onclick="guardarCobro()">Registrar cobro</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL CATEGORIAS COBRO (Admin) -->
+<div class="mol" id="m-cat-cobro">
+<div class="mbox">
+  <div class="mt">Nueva categoria de cobro</div>
+  <div class="fr"><label>Nombre de la categoria</label><input id="ncat-nom" placeholder="Ej: Augusto, Luke, Equipos, etc."></div>
+  <div class="fr"><label>Color (opcional)</label>
+    <select id="ncat-color">
+      <option value="#F8BA3B">Dorado</option>
+      <option value="#45cc8a">Verde</option>
+      <option value="#5aabff">Azul</option>
+      <option value="#c084fc">Violeta</option>
+      <option value="#f0a030">Naranja</option>
+      <option value="#e05555">Rojo</option>
+    </select>
+  </div>
+  <div class="mac">
+    <button class="btn btn-gh" onclick="closeModal('m-cat-cobro')">Cancelar</button>
+    <button class="btn btn-gd" onclick="guardarCatCobro()">Guardar categoria</button>
+  </div>
+</div>
+</div>
+
 <div class="mol" id="m-pdf">
 <div class="mbox" style="max-width:860px;">
   <div class="mt">PDF para cliente</div>
@@ -659,7 +763,8 @@ onAuthStateChanged(auth, function(user){
 
 // ===== STATE =====
 var S = {
-  presupuestos: [], gastos: [], clientes: [], trabajos: [],
+  presupuestos: [], gastos: [], clientes: [], trabajos: [], cobros: [],
+  catsCobro: [],
   tarifas: {
     'Director / DOP':8000,'Camarografo':6000,'Sonidista':5000,'Gaffer':4500,
     'Asistente':3000,'Edicion':5500,'Postproduccion':6000,
@@ -783,6 +888,20 @@ function initListeners(){
   });
   getDoc(doc(db,'config','contacto')).then(function(d){
     if(d.exists()) S.contacto=d.data();
+  });
+  getDoc(doc(db,'config','catsCobro')).then(function(d){
+    if(d.exists()&&d.data().items) S.catsCobro=d.data().items;
+  });
+  onSnapshot(collection(db,'cobros'), function(snap){
+    S.cobros=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    renderAnalytics();
+  });
+  getDoc(doc(db,'config','catsCobro')).then(function(d){
+    if(d.exists() && d.data().cats) S.catsCobro=d.data().cats;
+  });
+  onSnapshot(collection(db,'cobros'), function(snap){
+    S.cobros=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    render();
   });
 }
 
@@ -1082,6 +1201,32 @@ window.agregarItemCatalogo=function(){
   closeModal('m-additem');renderAdmin();
 };
 
+window.guardarCatsCobro=async function(){
+  var input=document.getElementById('admin-cats-cobro-input');
+  var val=input?input.value.trim():'';
+  if(!val)return;
+  if(S.catsCobro.indexOf(val)===-1){
+    S.catsCobro.push(val);
+    await fbSave('config','catsCobro',{cats:S.catsCobro});
+    input.value='';
+    renderAdminCatsCobro();
+  }
+};
+window.delCatCobro=async function(idx){
+  S.catsCobro.splice(idx,1);
+  await fbSave('config','catsCobro',{cats:S.catsCobro});
+  renderAdminCatsCobro();
+};
+function renderAdminCatsCobro(){
+  var cont=document.getElementById('admin-cats-cobro-list');
+  if(!cont)return;
+  cont.innerHTML=S.catsCobro.length?S.catsCobro.map(function(c,i){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:var(--sf2);border-radius:6px;margin-bottom:6px;">'+
+      '<span style="font-size:13px;font-weight:500;">'+c+'</span>'+
+      '<button class="btn btn-dr btn-xs" onclick="delCatCobro('+i+')">x</button></div>';
+  }).join(''):'<div style="font-size:12px;color:var(--mu);padding:6px 0">No hay categorias. Agrega la primera.</div>';
+}
+
 window.guardarTarifas=async function(){
   Object.keys(S.tarifas).forEach(function(rol){
     var key=rol.replace(/[^a-zA-Z0-9]/g,'_');
@@ -1103,7 +1248,7 @@ window.verPres=function(id){
   curPresId=id;
   var p=S.presupuestos.find(function(x){return x.id===id;});if(!p)return;
   var cli=S.clientes.find(function(c){return c.id===p.cliente;});
-  var bc=p.estado==='aprobado'?'bg':p.estado==='rechazado'?'br':'ba';
+  var bc=p.estado==='aprobado'?'bg':p.estado==='rechazado'?'br':p.estado==='realizado'?'bb':p.estado==='cobrado'?'bg':'ba';
   var h='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;gap:12px;flex-wrap:wrap;">'+
     '<div><div style="font-family:var(--fm);font-size:22px;font-weight:700;color:var(--gold);">'+p.nombre+'</div>'+
     '<div style="color:var(--mu);font-size:12px;margin-top:3px;">'+p.tipo+' - '+p.dias+'d - '+p.horas+'h/dia - '+p.fecha+'</div>'+
@@ -1176,14 +1321,123 @@ window.editarPres=function(id){
 
 window.chgEst=async function(id,est){
   var p=S.presupuestos.find(function(x){return x.id===id;});
-  if(p){
-    p.estado=est;
-    if(!p.historial)p.historial=[];
-    p.historial.push({accion:'estado -> '+est,fecha:today(),autor:currentUser?currentUser.name:'',email:currentUser?currentUser.email:''});
-    await fbSave('presupuestos',id,p);
-    verPres(id);
+  if(!p)return;
+  p.estado=est;
+  if(!p.historial)p.historial=[];
+  p.historial.push({accion:'estado -> '+est,fecha:today(),autor:currentUser?currentUser.name:'',email:currentUser?currentUser.email:''});
+  await fbSave('presupuestos',id,p);
+  // Si pasa a REALIZADO: crear trabajo automaticamente
+  if(est==='realizado'){
+    var cli=S.clientes.find(function(c){return c.id===p.cliente;});
+    var tid=uid();
+    var trabajo={
+      id:tid,
+      nombre:p.nombre,
+      cliente:p.cliente,
+      tipo:p.tipo,
+      monto:p.totalFinal,
+      moneda:'ARS',
+      estado:'completado',
+      fechaIni:p.fecha,
+      fechaFin:today(),
+      notas:'Creado automaticamente desde presupuesto #'+id,
+      fecha:today(),
+      presupuestoId:id
+    };
+    await fbSave('trabajos',tid,trabajo);
+    toast('Trabajo creado en la pestana Trabajos', 'ok');
   }
+  verPres(id);
 };
+window.iniciarCobro=function(id){
+  var p=S.presupuestos.find(function(x){return x.id===id;});
+  if(!p)return;
+  window._cobroPresId=id;
+  // Pre-fill monto
+  document.getElementById('cobro-monto').value=Math.round(p.totalFinal);
+  document.getElementById('cobro-fecha').value=today();
+  document.getElementById('cobro-pres-nombre').textContent=p.nombre;
+  document.getElementById('cobro-pres-total').textContent=fARS(p.totalFinal);
+  renderCobroDistribucion(p.totalFinal);
+  closeModal('m-det');
+  document.getElementById('m-cobro').classList.add('open');
+};
+
+function renderCobroDistribucion(total){
+  var cats=S.catsCobro||[];
+  if(!cats.length){
+    document.getElementById('cobro-dist-cont').innerHTML='<div style="font-size:12px;color:var(--mu);padding:8px 0">No hay categorias definidas. Agrega categorias en Admin → Categorias de cobro.</div>';
+    return;
+  }
+  var monto=parseFloat(document.getElementById('cobro-monto').value)||total||0;
+  document.getElementById('cobro-dist-cont').innerHTML=cats.map(function(cat){
+    return '<div style="display:grid;grid-template-columns:1fr 110px 90px;gap:8px;align-items:center;margin-bottom:8px;">'+
+      '<div style="font-size:13px;font-weight:500;">'+cat+'</div>'+
+      '<input type="number" id="cobro-cat-monto-'+cat.replace(/[^a-zA-Z0-9]/g,'_')+'" placeholder="0" oninput="updCobroPct(''+cat+'')" style="font-size:12px;">'+
+      '<div style="font-size:11px;color:var(--mu);text-align:right;" id="cobro-cat-pct-'+cat.replace(/[^a-zA-Z0-9]/g,'_')+'">0%</div>'+
+      '</div>';
+  }).join('')+
+  '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bd);display:flex;justify-content:space-between;font-size:12px;">'+
+  '<span style="color:var(--mu)">Distribuido</span>'+
+  '<span id="cobro-dist-total" style="font-family:Courier New,monospace;font-weight:700;">'+fARS(0)+'</span>'+
+  '<span id="cobro-dist-resto" style="color:var(--mu)">Resto: '+fARS(monto)+'</span>'+
+  '</div>';
+}
+
+window.updCobroPct=function(cat){
+  var cats=S.catsCobro||[];
+  var total=parseFloat(document.getElementById('cobro-monto').value)||0;
+  var dist=0;
+  cats.forEach(function(c){
+    var key=c.replace(/[^a-zA-Z0-9]/g,'_');
+    var el=document.getElementById('cobro-cat-monto-'+key);
+    var v=el?parseFloat(el.value)||0:0;
+    dist+=v;
+    var pctEl=document.getElementById('cobro-cat-pct-'+key);
+    if(pctEl)pctEl.textContent=total>0?Math.round(v/total*100)+'%':'0%';
+  });
+  var dtEl=document.getElementById('cobro-dist-total');
+  var drEl=document.getElementById('cobro-dist-resto');
+  if(dtEl)dtEl.textContent=fARS(dist);
+  if(drEl){drEl.textContent='Resto: '+fARS(total-dist);drEl.style.color=dist>total?'var(--red)':'var(--mu)';}
+};
+
+window.guardarCobro=async function(){
+  var pid=window._cobroPresId;
+  var p=S.presupuestos.find(function(x){return x.id===pid;});
+  if(!p)return;
+  var monto=parseFloat(document.getElementById('cobro-monto').value)||0;
+  var fecha=document.getElementById('cobro-fecha').value;
+  var nota=document.getElementById('cobro-nota').value;
+  var cats=S.catsCobro||[];
+  var distribucion={};
+  cats.forEach(function(c){
+    var key=c.replace(/[^a-zA-Z0-9]/g,'_');
+    var el=document.getElementById('cobro-cat-monto-'+key);
+    distribucion[c]=el?parseFloat(el.value)||0:0;
+  });
+  // Save cobro
+  var cid=uid();
+  await fbSave('cobros',cid,{
+    id:cid,
+    presupuestoId:pid,
+    presupuestoNombre:p.nombre,
+    cliente:p.cliente,
+    monto:monto,
+    fecha:fecha,
+    nota:nota,
+    distribucion:distribucion,
+    autor:currentUser?currentUser.name:''
+  });
+  // Update presupuesto to cobrado
+  p.estado='cobrado';
+  if(!p.historial)p.historial=[];
+  p.historial.push({accion:'cobrado - '+fARS(monto),fecha:fecha,autor:currentUser?currentUser.name:'',email:currentUser?currentUser.email:''});
+  await fbSave('presupuestos',pid,p);
+  closeModal('m-cobro');
+  toast('Cobro registrado!','ok');
+};
+
 window.delPres=async function(id){
   if(confirm('Eliminar este presupuesto?')){await fbDelete('presupuestos',id);closeModal('m-det');}
 };
@@ -1296,10 +1550,16 @@ function renderPresupuestos(){
   document.getElementById('kp-apr').textContent=apr;
   document.getElementById('kp-pen').textContent=pen;
   document.getElementById('kp-fac').textContent=fARS(fac);
+  // Split: active vs archived
+  var activos=S.presupuestos.filter(function(p){return p.estado!=='realizado'&&p.estado!=='cobrado';});
+  var archivados=S.presupuestos.filter(function(p){return p.estado==='realizado'||p.estado==='cobrado';});
   if(!S.presupuestos.length){lista.innerHTML='<div class="empty"><div class="ei">&#x1F4CB;</div><p>No hay presupuestos aun</p></div>';return;}
-  lista.innerHTML=S.presupuestos.map(function(p){
+  var showArchive=document.getElementById('toggle-archive')&&document.getElementById('toggle-archive').checked;
+  var toShow=showArchive?archivados:activos;
+  lista.innerHTML=(activos.length===0&&!showArchive?'<div class="empty"><div class="ei">&#x1F4CB;</div><p>No hay presupuestos activos</p></div>':'')+
+  toShow.map(function(p){
     var cli=S.clientes.find(function(c){return c.id===p.cliente;});
-    var bc=p.estado==='aprobado'?'bg':p.estado==='rechazado'?'br':'ba';
+    var bc=p.estado==='aprobado'?'bg':p.estado==='rechazado'?'br':p.estado==='realizado'?'bb':p.estado==='cobrado'?'bg':'ba';
     var enc=p.equipos?p.equipos.filter(function(e){return e.fuente==='enchulame';}).length:0;
     return '<div class="card" style="cursor:pointer;" onclick="verPres(\''+p.id+'\')">'+
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">'+
@@ -1312,7 +1572,9 @@ function renderPresupuestos(){
       '<div style="font-family:Courier New,monospace;font-size:19px;font-weight:700;color:var(--gold);">'+fARS(p.totalFinal)+'</div>'+
       (p.usdTotal>0?'<div style="font-family:Courier New,monospace;font-size:11px;color:var(--green);">+'+fUSD(p.usdTotal)+'</div>':'')+
       '<div style="font-size:10px;color:var(--mu);margin-top:2px;">margen '+p.margen+'%</div></div></div></div>';
-  }).join('');
+  }).join('')+
+  '<div style="margin-top:12px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mu);">'+
+  '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="toggle-archive" onchange="renderPresupuestos()"> Ver archivados ('+archivados.length+')</label></div>';
 }
 
 function renderGastos(){
@@ -1401,6 +1663,31 @@ function renderTrabajos(){
 function renderAnalytics(){
   var mg=S.presupuestos.length?S.presupuestos.reduce(function(s,p){return s+p.margen;},0)/S.presupuestos.length:0;
   document.getElementById('an-mg').textContent=Math.round(mg)+'%';
+  // Cobros analytics
+  var totalCobrado=S.cobros.reduce(function(s,c){return s+c.monto;},0);
+  var totalGastos=S.gastos.filter(function(g){return g.moneda==='ARS';}).reduce(function(s,g){return s+g.monto;},0);
+  var balanceEl=document.getElementById('an-balance');
+  var cobradoEl=document.getElementById('an-cobrado');
+  if(balanceEl)balanceEl.textContent=fARS(totalCobrado-totalGastos);
+  if(cobradoEl)cobradoEl.textContent=fARS(totalCobrado);
+  // Distribucion por categoria
+  var distTotal={};
+  S.cobros.forEach(function(c){
+    if(c.distribucion){
+      Object.keys(c.distribucion).forEach(function(k){
+        distTotal[k]=(distTotal[k]||0)+(c.distribucion[k]||0);
+      });
+    }
+  });
+  var distEl=document.getElementById('ch-dist');
+  if(distEl){
+    var maxD=Math.max.apply(null,Object.values(distTotal).concat([1]));
+    distEl.innerHTML=Object.keys(distTotal).length?
+      Object.entries(distTotal).sort(function(a,b){return b[1]-a[1];}).map(function(e){
+        return '<div class="bw"><div class="blbl"><span>'+e[0]+'</span><span style="font-family:Courier New,monospace;font-size:11px;color:var(--mu2)">'+fARS(e[1])+'</span></div>'+
+          '<div class="btr"><div class="bfill" style="width:'+(e[1]/maxD*100)+'%;background:var(--gold)"></div></div></div>';
+      }).join(''):'<div style="font-size:12px;color:var(--mu)">Sin cobros registrados aun</div>';
+  }
   var cc={};S.trabajos.forEach(function(t){if(t.cliente)cc[t.cliente]=(cc[t.cliente]||0)+1;});
   var topC=Object.keys(cc).sort(function(a,b){return cc[b]-cc[a];})[0];
   var tc=topC?S.clientes.find(function(c){return c.id===topC;}):null;
@@ -1413,6 +1700,22 @@ function renderAnalytics(){
   var encT=S.gastos.filter(function(g){return g.esEnchulame&&g.moneda==='ARS';}).reduce(function(s,g){return s+g.monto;},0);
   var encTP=S.presupuestos.reduce(function(s,p){return s+(p.equipos?p.equipos.filter(function(e){return e.fuente==='enchulame'&&e.moneda==='ARS';}).reduce(function(ss,e){return ss+e.monto;},0):0);},0);
   document.getElementById('an-en').textContent=fARS(encT+encTP);
+  var anGastEl=document.getElementById('an-gast');
+  if(anGastEl)anGastEl.textContent=fARS(totalGastos);
+  var anNcobEl=document.getElementById('an-ncobros');
+  if(anNcobEl)anNcobEl.textContent=S.cobros.length;
+  // Cobros recientes list
+  var cobroListEl=document.getElementById('ch-cobros-list');
+  if(cobroListEl){
+    var recientes=S.cobros.slice().sort(function(a,b){return b.fecha>a.fecha?1:-1;}).slice(0,6);
+    cobroListEl.innerHTML=recientes.length?recientes.map(function(c){
+      var cli=S.clientes.find(function(x){return x.id===c.cliente;});
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd);font-size:12px;">'+
+        '<div><div style="font-weight:600">'+c.presupuestoNombre+'</div>'+
+        '<div style="color:var(--mu);font-size:10px;">'+(cli?cli.nombre:'')+' · '+c.fecha+(c.autor?' · '+c.autor:'')+'</div></div>'+
+        '<div style="font-family:Courier New,monospace;font-weight:700;color:var(--green);">'+fARS(c.monto)+'</div></div>';
+    }).join(''):'<div style="font-size:12px;color:var(--mu)">Sin cobros aun</div>';
+  }
   var ct={};S.gastos.filter(function(g){return g.moneda==='ARS';}).forEach(function(g){ct[g.categoria]=(ct[g.categoria]||0)+g.monto;});
   var maxC=Math.max.apply(null,Object.values(ct).concat([1]));
   var cols={'Alquiler de equipos':'var(--gold)','Movilidad':'var(--blue)','Locacion':'var(--green)','Catering':'#f0a030','Arte / Props':'#c084fc','Honorarios':'var(--red)','Otro':'var(--mu2)'};
@@ -1428,9 +1731,57 @@ function renderAnalytics(){
       return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--bd);font-size:12px;"><div><div style="font-weight:600">'+e[0]+tip+'</div><div style="color:var(--mu);font-size:10px;margin-top:2px;">Alquilado '+e[1]+' vez'+(e[1]!==1?'es':'')+'</div></div><div style="font-family:Courier New,monospace;font-weight:700;color:var(--gold)">'+(icosts[e[0]]?fARS(icosts[e[0]]):'sin registro')+'</div></div>';
     }).join('');
   } else{document.getElementById('en-empty').style.display='block';document.getElementById('ch-enc').innerHTML='';}
+
+  // ===== COBROS ANALYTICS =====
+  var totalCobrado=S.cobros.reduce(function(s,c){return s+c.monto;},0);
+  var totalGastos=S.gastos.filter(function(g){return g.moneda==='ARS';}).reduce(function(s,g){return s+g.monto;},0);
+  var balance=totalCobrado-totalGastos;
+  var elCobros=document.getElementById('an-cobros');
+  if(elCobros){
+    // Distribution by category across all cobros
+    var distMap={};
+    S.cobros.forEach(function(c){
+      if(c.distribucion)c.distribucion.forEach(function(d){
+        distMap[d.categoria]=(distMap[d.categoria]||0)+d.monto;
+      });
+    });
+    var maxDist=Math.max.apply(null,Object.values(distMap).concat([1]));
+    elCobros.innerHTML=
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;">'+
+      '<div class="kpi"><div class="kl">Total cobrado</div><div class="kv gr">'+fARS(totalCobrado)+'</div></div>'+
+      '<div class="kpi"><div class="kl">Total gastos</div><div class="kv rd">'+fARS(totalGastos)+'</div></div>'+
+      '<div class="kpi"><div class="kl">Balance neto</div><div class="kv" style="color:'+(balance>=0?'var(--green)':'var(--red)')+'">'+fARS(balance)+'</div></div>'+
+      '</div>'+
+      (Object.keys(distMap).length?
+        '<div class="ct">Distribucion de cobros</div>'+
+        Object.entries(distMap).sort(function(a,b){return b[1]-a[1];}).map(function(e){
+          var cat=S.catsCobro?S.catsCobro.find(function(c){return c.nombre===e[0];}):null;
+          var col=cat?cat.color:'var(--gold)';
+          return '<div class="bw"><div class="blbl"><span style="display:flex;align-items:center;gap:6px;"><span style="width:7px;height:7px;border-radius:50%;background:'+col+';display:inline-block;"></span>'+e[0]+'</span><span style="font-family:Courier New,monospace;font-size:11px;color:var(--mu2)">'+fARS(e[1])+'</span></div><div class="btr"><div class="bfill" style="width:'+(e[1]/maxDist*100)+'%;background:'+col+'"></div></div></div>';
+        }).join('')+
+        '<div style="margin-top:12px;border-top:1px solid var(--bd);padding-top:12px;">'+
+        '<div class="ct">Historial de cobros</div>'+
+        (S.cobros.length?S.cobros.slice().sort(function(a,b){return b.fecha>a.fecha?1:-1;}).map(function(c){
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd);font-size:12px;">'+
+            '<div><div style="font-weight:600">'+c.nombre+'</div><div style="color:var(--mu);font-size:10px;">'+c.fecha+(c.autor?' · '+c.autor:'')+'</div></div>'+
+            '<div style="font-family:Courier New,monospace;font-weight:700;color:var(--green);">'+fARS(c.monto)+'</div></div>';
+        }).join(''):'<div style="color:var(--mu);font-size:12px;">Sin cobros registrados aun</div>')+
+        '</div>'
+      :'<div style="color:var(--mu);font-size:12px;padding:20px 0;text-align:center;">No hay cobros registrados aun</div>');
+  }
 }
 
 window.renderAdmin=function(){
+  // Render categorias cobro
+  var catList=document.getElementById('admin-cat-cobro-list');
+  if(catList){
+    catList.innerHTML=(S.catsCobro&&S.catsCobro.length)?S.catsCobro.map(function(cat,i){
+      return '<div style="display:flex;align-items:center;gap:6px;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;padding:6px 10px;">'+
+        '<div style="width:8px;height:8px;border-radius:50%;background:'+cat.color+';flex-shrink:0;"></div>'+
+        '<span style="font-size:12px;font-weight:500;">'+cat.nombre+'</span>'+
+        '<button class="btn btn-dr btn-xs" onclick="delCatCobro('+i+')">x</button></div>';
+    }).join(''):'<div style="font-size:12px;color:var(--mu);">No hay categorias aun. Crea la primera.</div>';
+  }
   var grid=document.getElementById('admin-roles-grid');
   grid.innerHTML=Object.keys(S.tarifas).map(function(rol){
     var key=rol.replace(/[^a-zA-Z0-9]/g,'_');
@@ -1439,6 +1790,7 @@ window.renderAdmin=function(){
       '<input type="number" value="'+S.tarifas[rol]+'" id="tar_'+key+'" style="font-size:12px;font-weight:600;color:var(--gold);"></div></div>';
   }).join('');
   window.renderAdminCatalog();
+  renderAdminCatsCobro();
 };
 window.renderAdminCatalog=function(){
   var tbody=document.getElementById('admin-cat-tbody');
@@ -1452,6 +1804,146 @@ window.renderAdminCatalog=function(){
       '<td><input type="number" value="'+e.p+'" id="cp_'+realIdx+'" style="font-size:12px;width:120px;font-weight:600;color:var(--gold);"></td>'+
       '<td><button class="btn btn-dr btn-xs" onclick="delCatItem('+realIdx+')">x</button></td></tr>';
   }).join('');
+};
+
+// ===== CATEGORIAS COBRO =====
+window.guardarCatCobro=async function(){
+  var nom=document.getElementById('ncat-nom').value.trim();
+  if(!nom){alert('Ingresa un nombre');return;}
+  if(!S.catsCobro)S.catsCobro=[];
+  S.catsCobro.push({nombre:nom,color:document.getElementById('ncat-color').value});
+  await fbSave('config','catsCobro',{items:S.catsCobro});
+  closeModal('m-cat-cobro');
+  renderAdmin();
+};
+window.delCatCobro=async function(idx){
+  if(confirm('Eliminar "'+S.catsCobro[idx].nombre+'"?')){
+    S.catsCobro.splice(idx,1);
+    await fbSave('config','catsCobro',{items:S.catsCobro});
+    renderAdmin();
+  }
+};
+
+// ===== MARCAR REALIZADO =====
+window.marcarRealizado=async function(id){
+  var p=S.presupuestos.find(function(x){return x.id===id;});
+  if(!p)return;
+  if(!confirm('Marcar como Realizado y crear trabajo automaticamente?'))return;
+  // Update presupuesto state
+  p.estado='realizado';
+  if(!p.historial)p.historial=[];
+  p.historial.push({accion:'estado -> realizado',fecha:today(),autor:currentUser?currentUser.name:'',email:currentUser?currentUser.email:''});
+  await fbSave('presupuestos',id,p);
+  // Auto-create trabajo
+  var cli=S.clientes.find(function(c){return c.id===p.cliente;});
+  var tid=uid();
+  var trabajo={
+    id:tid, nombre:p.nombre,
+    cliente:p.cliente, tipo:p.tipo,
+    monto:p.totalFinal, moneda:'ARS',
+    estado:'completado',
+    fechaIni:today(), fechaFin:'',
+    notas:'Creado automaticamente desde presupuesto #'+id,
+    fecha:today(),
+    presupuestoId:id
+  };
+  await fbSave('trabajos',tid,trabajo);
+  closeModal('m-det');
+  toast('Trabajo creado automaticamente', 'ok');
+};
+
+// ===== COBRO =====
+window.abrirCobro=function(id){
+  var p=S.presupuestos.find(function(x){return x.id===id;});
+  if(!p)return;
+  window._cobroPresId=id;
+  document.getElementById('cobro-pres-info').innerHTML=
+    '<div style="font-weight:600;color:var(--tx);margin-bottom:4px;">'+p.nombre+'</div>'+
+    '<div style="color:var(--mu);font-size:12px;">Total presupuestado: <span style="color:var(--gold);font-weight:700;font-family:Courier New,monospace;">'+fARS(p.totalFinal)+'</span></div>';
+  document.getElementById('cobro-monto').value=Math.round(p.totalFinal)||'';
+  document.getElementById('cobro-fecha').value=today();
+  // Build distribution rows
+  var cats=S.catsCobro||[];
+  document.getElementById('cobro-dist-rows').innerHTML=cats.length?cats.map(function(cat,i){
+    return '<div style="display:grid;grid-template-columns:1fr 90px 90px;gap:8px;align-items:center;margin-bottom:7px;padding:8px 12px;background:var(--sf2);border-radius:6px;">'+
+      '<div style="display:flex;align-items:center;gap:8px;">'+
+      '<div style="width:8px;height:8px;border-radius:50%;background:'+cat.color+';flex-shrink:0;"></div>'+
+      '<span style="font-size:12px;font-weight:500;">'+cat.nombre+'</span></div>'+
+      '<input type="number" min="0" id="dist-pct-'+i+'" placeholder="%" oninput="updCobroFromPct('+i+')" style="font-size:12px;text-align:center;">'+
+      '<input type="number" min="0" id="dist-monto-'+i+'" placeholder="$" oninput="updCobroFromMonto('+i+')" style="font-size:12px;font-weight:600;color:var(--gold);text-align:right;"></div>';
+  }).join(''):'<div style="font-size:12px;color:var(--mu);padding:8px;">No hay categorias de cobro. Crealas desde Admin.</div>';
+  updCobroDistribucion();
+  closeModal('m-det');
+  document.getElementById('m-cobro').classList.add('open');
+};
+
+window.updCobroDistribucion=function(){
+  var total=parseFloat(document.getElementById('cobro-monto').value)||0;
+  var cats=S.catsCobro||[];
+  var usado=0;
+  cats.forEach(function(cat,i){
+    var mEl=document.getElementById('dist-monto-'+i);
+    if(mEl)usado+=parseFloat(mEl.value)||0;
+  });
+  var sinDist=Math.max(0,total-usado);
+  var el=document.getElementById('cobro-sin-dist');
+  if(el)el.textContent=fARS(sinDist);
+  if(el)el.style.color=sinDist===0?'var(--green)':sinDist<0?'var(--red)':'var(--gold)';
+};
+
+window.updCobroFromPct=function(i){
+  var total=parseFloat(document.getElementById('cobro-monto').value)||0;
+  var pctEl=document.getElementById('dist-pct-'+i);
+  var montoEl=document.getElementById('dist-monto-'+i);
+  if(pctEl&&montoEl){
+    var pct=parseFloat(pctEl.value)||0;
+    montoEl.value=pct>0?Math.round(total*pct/100):'';
+  }
+  updCobroDistribucion();
+};
+
+window.updCobroFromMonto=function(i){
+  var total=parseFloat(document.getElementById('cobro-monto').value)||0;
+  var pctEl=document.getElementById('dist-pct-'+i);
+  var montoEl=document.getElementById('dist-monto-'+i);
+  if(pctEl&&montoEl&&total>0){
+    var monto=parseFloat(montoEl.value)||0;
+    pctEl.value=monto>0?Math.round(monto/total*100):'';
+  }
+  updCobroDistribucion();
+};
+
+window.guardarCobro=async function(){
+  var presId=window._cobroPresId;
+  var p=S.presupuestos.find(function(x){return x.id===presId;});
+  if(!p)return;
+  var monto=parseFloat(document.getElementById('cobro-monto').value);
+  if(!monto){alert('Ingresa el monto cobrado');return;}
+  var fecha=document.getElementById('cobro-fecha').value;
+  var cats=S.catsCobro||[];
+  var distribucion=cats.map(function(cat,i){
+    var m=parseFloat(document.getElementById('dist-monto-'+i)?document.getElementById('dist-monto-'+i).value:0)||0;
+    return {categoria:cat.nombre,color:cat.color,monto:m};
+  }).filter(function(d){return d.monto>0;});
+  var usado=distribucion.reduce(function(s,d){return s+d.monto;},0);
+  if(usado<monto){distribucion.push({categoria:'Sin distribuir',color:'var(--mu)',monto:Math.round(monto-usado)});}
+  // Save cobro
+  var cid=uid();
+  await fbSave('cobros',cid,{
+    id:cid, presupuestoId:presId,
+    nombre:p.nombre, monto:monto, fecha:fecha,
+    distribucion:distribucion,
+    autor:currentUser?currentUser.name:'',
+    email:currentUser?currentUser.email:''
+  });
+  // Update presupuesto
+  p.estado='cobrado';
+  p.cobroTotal=monto;
+  if(!p.historial)p.historial=[];
+  p.historial.push({accion:'cobrado '+fARS(monto),fecha:today(),autor:currentUser?currentUser.name:'',email:currentUser?currentUser.email:''});
+  await fbSave('presupuestos',presId,p);
+  closeModal('m-cobro');
+  toast('Cobro registrado', 'ok');
 };
 
 // INIT - called from onAuthStateChanged after login
