@@ -613,6 +613,7 @@ document.addEventListener('DOMContentLoaded', function(){
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
         <label class="tgl"><input type="checkbox" checked id="pdf-tot" onchange="updPDF()"><div class="ttr"><div class="tth"></div></div>Mostrar total final</label>
         <label class="tgl"><input type="checkbox" id="pdf-sub" onchange="updPDF()"><div class="ttr"><div class="tth"></div></div>Mostrar subtotales por item</label>
+        <label class="tgl"><input type="checkbox" checked id="pdf-jornadas" onchange="updPDF()"><div class="ttr"><div class="tth"></div></div>Mostrar detalle de jornadas/horas</label>
       </div>
     </div>
   </div>
@@ -1197,7 +1198,13 @@ window.verPres=function(id){
     '<div style="color:var(--mu);font-size:12px;margin-top:3px;">'+p.tipo+' - '+p.dias+'d - '+p.horas+'h/dia - '+p.fecha+'</div>'+
     (cli?'<div style="font-size:12px;margin-top:4px;">Cliente: <strong style="color:var(--tx)">'+cli.nombre+'</strong></div>':'')+'</div>'+
     '<span class="badge '+bc+'" style="font-size:12px;padding:4px 12px;">'+p.estado+'</span></div>';
-  if(p.roles&&p.roles.length){h+='<div class="pst" style="margin-bottom:8px">Equipo</div><table style="width:100%;margin-bottom:14px;font-size:12px;"><thead><tr><th>Rol</th><th>Cant.</th><th>Horas</th><th>Tarifa/hr</th><th style="text-align:right">Subtotal</th></tr></thead><tbody>'+p.roles.map(function(r){return '<tr><td>'+r.nombre+'</td><td>'+r.cantidad+'</td><td>'+r.horas+'</td><td class="mo">'+fM(r.tarifa,r.moneda)+'</td><td class="mo" style="text-align:right">'+fM(r.cantidad*r.horas*r.tarifa,r.moneda)+'</td></tr>';}).join('')+'</tbody></table>';}
+  if(p.roles&&p.roles.length){h+=(function(){var showSub=document.getElementById('pdf-sub')&&document.getElementById('pdf-sub').checked;return '<div class="pst" style="margin-bottom:8px">Equipo</div><table style="width:100%;margin-bottom:14px;font-size:12px;"><thead><tr><th>Rol</th>'+(showSub?'<th style="text-align:right">Subtotal</th>':'')+'</tr></thead><tbody>';})()+p.roles.map(function(r){
+    var showJorn=document.getElementById('pdf-jornadas')&&document.getElementById('pdf-jornadas').checked;
+    var showSub=document.getElementById('pdf-sub')&&document.getElementById('pdf-sub').checked;
+    var totalRol=r.cantidad*r.horas*r.tarifa;
+    var detalle=showJorn?'<div style="font-size:10px;color:#666;margin-top:2px;">'+r.cantidad+' jornada'+(r.cantidad!==1?'s':'')+' x '+r.horas+' hora'+(r.horas!==1?'s':'')+' = '+(r.cantidad*r.horas)+' hs</div>':'';
+    return '<tr><td>'+r.nombre+(detalle?'<br>'+detalle:'')+'</td>'+(showSub?'<td class="mo" style="text-align:right">'+fM(totalRol,r.moneda)+'</td>':'<td></td>')+'</tr>';
+  }).join('')+'</tbody></table>';}
   if(p.equipos&&p.equipos.length){h+='<div class="pst" style="margin-bottom:8px">Equipos</div><table style="width:100%;margin-bottom:14px;font-size:12px;"><thead><tr><th>Item</th><th>Fuente</th><th style="text-align:right">Monto</th></tr></thead><tbody>'+p.equipos.map(function(e){return '<tr><td>'+e.nombre+'</td><td>'+(e.fuente==='enchulame'?'<span class="badge bgd">Enchulame</span>':'Otro')+'</td><td class="mo" style="text-align:right">'+fM(e.monto,e.moneda)+'</td></tr>';}).join('')+'</tbody></table>';}
   if(p.extras&&p.extras.length){h+='<div class="pst" style="margin-bottom:8px">Otros gastos</div><table style="width:100%;margin-bottom:14px;font-size:12px;"><thead><tr><th>Concepto</th><th style="text-align:right">Monto</th></tr></thead><tbody>'+p.extras.map(function(x){return '<tr><td>'+x.nombre+'</td><td class="mo" style="text-align:right">'+fM(x.monto,x.moneda)+'</td></tr>';}).join('')+'</tbody></table>';}
   h+='<div class="tbox"><div><div class="tlbl">Costo ARS</div><div class="tval">'+fARS(p.arsTotal)+'</div></div>'+
