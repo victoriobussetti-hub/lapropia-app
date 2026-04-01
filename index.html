@@ -1075,7 +1075,7 @@ window.guardarPres=async function(){
   var nom=document.getElementById('p-nom').value.trim();
   if(!nom){alert('Ingresa un nombre');return;}
   var a=0,u=0;
-  presRoles.forEach(function(r){var s=r.cantidad*r.horas*r.tarifa;r.moneda==='ARS'?a+=s:u+=s;});
+  presRoles.forEach(function(r){var j=r.jornadas||1;var s=r.cantidad*j*r.horas*r.tarifa;r.moneda==='ARS'?a+=s:u+=s;});
   presEq.concat(presEx).forEach(function(x){x.moneda==='ARS'?a+=x.monto:u+=x.monto;});
   var mg=parseFloat(document.getElementById('p-mg').value||30);
   var saveBtn=document.getElementById('pres-save-btn');
@@ -1365,6 +1365,20 @@ window.abrirPDF=function(){
   document.getElementById('m-pdf').classList.add('open');
 };
 
+function calcTotal(p){
+  // Always recalculate from roles to avoid stale Firestore values
+  var a=0,u=0;
+  if(p.roles)p.roles.forEach(function(r){
+    var j=r.jornadas!==undefined?r.jornadas:(p.dias||1);
+    var h=r.jornadas!==undefined?r.horas:(p.dias>0?Math.round((r.horas/(p.dias||1))*10)/10:r.horas);
+    var s=r.cantidad*j*h*r.tarifa;
+    r.moneda==='USD'?u+=s:a+=s;
+  });
+  if(p.equipos)p.equipos.forEach(function(e){e.moneda==='USD'?u+=e.monto:a+=e.monto;});
+  if(p.extras)p.extras.forEach(function(x){x.moneda==='USD'?u+=x.monto:a+=x.monto;});
+  var mg=p.margen||30;
+  return a*(1+mg/100);
+}
 window.updPDF=function(){
   var d=window._pdfData;if(!d)return;
   var p=d.p,cli=d.cli,allItems=d.allItems;
@@ -1436,7 +1450,7 @@ function renderPresupuestos(){
   var lista=document.getElementById('pres-lista');
   var apr=S.presupuestos.filter(function(p){return p.estado==='aprobado';}).length;
   var pen=S.presupuestos.filter(function(p){return p.estado==='pendiente';}).length;
-  var fac=S.presupuestos.filter(function(p){return p.estado==='aprobado';}).reduce(function(s,p){return s+p.totalFinal;},0);
+  var fac=S.presupuestos.filter(function(p){return p.estado==='aprobado';}).reduce(function(s,p){return s+calcTotal(p);},0);
   document.getElementById('kp-tot').textContent=S.presupuestos.length;
   document.getElementById('kp-apr').textContent=apr;
   document.getElementById('kp-pen').textContent=pen;
@@ -1460,7 +1474,7 @@ function renderPresupuestos(){
       '<div class="chips">'+(p.roles?p.roles.map(function(r){return '<span class="chip">'+r.nombre+(r.cantidad>1?' x'+r.cantidad:'')+'</span>';}).join(''):'')+
       (enc>0?'<span class="chip" style="color:var(--gold);border-color:rgba(248,186,59,.3)">Enchulame x'+enc+'</span>':'')+'</div></div>'+
       '<div style="text-align:right;"><span class="badge '+bc+'" style="display:block;margin-bottom:7px;">'+p.estado+'</span>'+
-      '<div style="font-family:Courier New,monospace;font-size:19px;font-weight:700;color:var(--gold);">'+fARS(p.totalFinal)+'</div>'+
+      '<div style="font-family:Courier New,monospace;font-size:19px;font-weight:700;color:var(--gold);">'+fARS(calcTotal(p))+'</div>'+
       (p.usdTotal>0?'<div style="font-family:Courier New,monospace;font-size:11px;color:var(--green);">+'+fUSD(p.usdTotal)+'</div>':'')+
       '<div style="font-size:10px;color:var(--mu);margin-top:2px;">margen '+p.margen+'%</div></div></div></div>';
   }).join('')+
