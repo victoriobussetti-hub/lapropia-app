@@ -1225,15 +1225,27 @@ window.verPres=function(id){
     var totalHs=r.cantidad*jorn*hsDay;
     var totalRol=r.cantidad*jorn*hsDay*r.tarifa;
     var r_horas_display=hsDay;
-    var detalle=showJorn?'<div style="font-size:10px;color:#666;margin-top:2px;">'+r.cantidad+(r.cantidad!==1?' unidades':' unidad')+' × '+jorn+' jornada'+(jorn!==1?'s':'')+' × '+r_horas_display+' hs/día = '+totalHs+' hs</div>':'';
+    var detalle=showJorn?'<div style="font-size:10px;color:#666;margin-top:2px;">'+jorn+' jornada'+(jorn!==1?'s':'')+' × '+r_horas_display+' hs/día</div>':'';
     return '<tr><td>'+r.nombre+(detalle?'<br>'+detalle:'')+'</td>'+(showSub?'<td class="mo" style="text-align:right">'+fM(totalRol,r.moneda)+'</td>':'<td></td>')+'</tr>';
   }).join('')+'</tbody></table>';}
   if(p.equipos&&p.equipos.length){h+='<div class="pst" style="margin-bottom:8px">Equipos</div><table style="width:100%;margin-bottom:14px;font-size:12px;"><thead><tr><th>Item</th><th>Fuente</th><th style="text-align:right">Monto</th></tr></thead><tbody>'+p.equipos.map(function(e){return '<tr><td>'+e.nombre+'</td><td>'+(e.fuente==='enchulame'?'<span class="badge bgd">Enchulame</span>':'Otro')+'</td><td class="mo" style="text-align:right">'+fM(e.monto,e.moneda)+'</td></tr>';}).join('')+'</tbody></table>';}
   if(p.extras&&p.extras.length){h+='<div class="pst" style="margin-bottom:8px">Otros gastos</div><table style="width:100%;margin-bottom:14px;font-size:12px;"><thead><tr><th>Concepto</th><th style="text-align:right">Monto</th></tr></thead><tbody>'+p.extras.map(function(x){return '<tr><td>'+x.nombre+'</td><td class="mo" style="text-align:right">'+fM(x.monto,x.moneda)+'</td></tr>';}).join('')+'</tbody></table>';}
-  h+='<div class="tbox"><div><div class="tlbl">Costo ARS</div><div class="tval">'+fARS(p.arsTotal)+'</div></div>'+
-    '<div><div class="tlbl">Costo USD</div><div class="tval gr">'+fUSD(p.usdTotal)+'</div></div>'+
-    '<div><div class="tlbl">Margen '+p.margen+'%</div><div class="tval" style="color:#f0a030">+'+fARS(p.arsTotal*p.margen/100)+'</div></div>'+
-    '<div style="text-align:right"><div class="tlbl">Total a cobrar</div><div class="tval gd" style="font-size:22px">'+fARS(p.totalFinal)+'</div></div></div>'+
+  // Recalc live from roles to avoid stale stored values
+  var _liveARS=0,_liveUSD=0;
+  if(p.roles)p.roles.forEach(function(r){
+    var _j=r.jornadas!==undefined?r.jornadas:(p.dias||1);
+    var _h=r.jornadas!==undefined?r.horas:(p.dias>0?Math.round((r.horas/(p.dias||1))*10)/10:r.horas);
+    var s=r.cantidad*_j*_h*r.tarifa;
+    r.moneda==='USD'?_liveUSD+=s:_liveARS+=s;
+  });
+  if(p.equipos)p.equipos.forEach(function(e){e.moneda==='USD'?_liveUSD+=e.monto:_liveARS+=e.monto;});
+  if(p.extras)p.extras.forEach(function(x){x.moneda==='USD'?_liveUSD+=x.monto:_liveARS+=x.monto;});
+  var _mg=p.margen||30;
+  var _liveTot=_liveARS*(1+_mg/100);
+  h+='<div class="tbox"><div><div class="tlbl">Costo ARS</div><div class="tval">'+fARS(_liveARS)+'</div></div>'+
+    '<div><div class="tlbl">Costo USD</div><div class="tval gr">'+fUSD(_liveUSD)+'</div></div>'+
+    '<div><div class="tlbl">Margen '+_mg+'%</div><div class="tval" style="color:#f0a030">+'+fARS(_liveARS*_mg/100)+'</div></div>'+
+    '<div style="text-align:right"><div class="tlbl">Total a cobrar</div><div class="tval gd" style="font-size:22px">'+fARS(_liveTot)+'</div></div></div>'+
     '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">'+
     (p.estado!=='realizado'&&p.estado!=='cobrado'?
       '<button class="btn btn-gh btn-sm" onclick="chgEst(\''+p.id+'\',\'pendiente\')">Pendiente</button>'+
@@ -1331,7 +1343,7 @@ window.abrirPDF=function(){
   var p=S.presupuestos.find(function(x){return x.id===curPresId;});if(!p)return;
   var cli=S.clientes.find(function(c){return c.id===p.cliente;});
   var allItems=[];
-  if(p.roles)p.roles.forEach(function(r){var _j=r.jornadas!==undefined?r.jornadas:(p.dias||1);var _h=r.jornadas!==undefined?r.horas:(p.dias>0?Math.round((r.horas/p.dias)*10)/10:r.horas);allItems.push({id:r.id,tipo:'rol',label:r.nombre,cant:r.cantidad,horas:_h,sub:fM(r.cantidad*_j*_h*r.tarifa,r.moneda)});});
+  if(p.roles)p.roles.forEach(function(r){var _j=r.jornadas!==undefined?r.jornadas:(p.dias||1);var _h=r.jornadas!==undefined?r.horas:(p.dias>0?Math.round((r.horas/p.dias)*10)/10:r.horas);allItems.push({id:r.id,tipo:'rol',label:r.nombre,cant:r.cantidad,jornadas:_j,horas:_h,sub:fM(r.cantidad*_j*_h*r.tarifa,r.moneda)});});
   if(p.equipos)p.equipos.forEach(function(e){allItems.push({id:e.id,tipo:'equipo',label:e.nombre,cant:1,horas:0,sub:fM(e.monto,e.moneda)});});
   if(p.extras)p.extras.forEach(function(x){allItems.push({id:x.id,tipo:'extra',label:x.nombre,cant:1,horas:0,sub:fM(x.monto,x.moneda)});});
   document.getElementById('pdf-sel').innerHTML=allItems.map(function(it){
@@ -1359,6 +1371,7 @@ window.updPDF=function(){
   var chk=Array.from(document.querySelectorAll('#pdf-sel input[data-iid]:checked')).map(function(i){return i.dataset.iid;});
   var showTot=document.getElementById('pdf-tot')&&document.getElementById('pdf-tot').checked;
   var showSub=document.getElementById('pdf-sub')&&document.getElementById('pdf-sub').checked;
+  var showJorn=document.getElementById('pdf-jornadas')&&document.getElementById('pdf-jornadas').checked;
   var tel=document.getElementById('pdf-tel')?document.getElementById('pdf-tel').value:'+54 9 3329 66-5108';
   var email=document.getElementById('pdf-email')?document.getElementById('pdf-email').value:'lapropiaprod@gmail.com';
   var cbu=document.getElementById('pdf-cbu-val')?document.getElementById('pdf-cbu-val').value:'';
@@ -1400,7 +1413,7 @@ window.updPDF=function(){
       return '<tr style="border-bottom:1px solid #eee;">'+
         '<td style="padding:10px 8px;vertical-align:top;font-weight:700;color:#111;">'+it.cant+'</td>'+
         '<td style="padding:10px 8px;vertical-align:top;"><div style="font-weight:600;color:#111;">'+it.label+'</div>'+
-        (it.tipo==='rol'?'<div style="color:#888;font-size:11px;">'+it.horas+' horas</div>':'')+'</td>'+
+        (it.tipo==='rol'&&showJorn?'<div style="color:#888;font-size:11px;">'+(it.jornadas||1)+' jornada'+((it.jornadas||1)!==1?'s':'')+' × '+it.horas+' hs/día</div>':'')+'</td>'+
         (showSub?'<td style="padding:10px 8px;text-align:right;font-weight:700;color:#111;">'+it.sub+'</td>':'')+
         '</tr>';
     }).join('')+
