@@ -1061,7 +1061,7 @@ window.recalc=function(){
     var moneda=curEl?curEl.value:x.moneda;
     moneda==='ARS'?a+=monto:u+=monto;
   });
-  var m=parseFloat(document.getElementById('p-mg')?document.getElementById('p-mg').value:30)/100;
+  var _mgEl=document.getElementById('p-mg');var m=parseFloat(_mgEl&&_mgEl.value!==''?_mgEl.value:30)/100;
   if(document.getElementById('t-ars'))document.getElementById('t-ars').textContent=fARS(a);
   if(document.getElementById('t-usd'))document.getElementById('t-usd').textContent=fUSD(u);
   if(document.getElementById('t-fin'))document.getElementById('t-fin').textContent=fARS(a*(1+m));
@@ -1077,7 +1077,7 @@ window.guardarPres=async function(){
   var a=0,u=0;
   presRoles.forEach(function(r){var j=r.jornadas||1;var s=r.cantidad*j*r.horas*r.tarifa;r.moneda==='ARS'?a+=s:u+=s;});
   presEq.concat(presEx).forEach(function(x){x.moneda==='ARS'?a+=x.monto:u+=x.monto;});
-  var mg=parseFloat(document.getElementById('p-mg').value||30);
+  var _mgInp=document.getElementById('p-mg');var mg=parseFloat(_mgInp&&_mgInp.value!==''?_mgInp.value:30);
   var saveBtn=document.getElementById('pres-save-btn');
   var editId=saveBtn?saveBtn.dataset.editId:null;
 
@@ -1343,17 +1343,34 @@ window.abrirPDF=function(){
   var p=S.presupuestos.find(function(x){return x.id===curPresId;});if(!p)return;
   var cli=S.clientes.find(function(c){return c.id===p.cliente;});
   var allItems=[];
-  if(p.roles)p.roles.forEach(function(r){var _j=r.jornadas!==undefined?r.jornadas:(p.dias||1);var _h=r.jornadas!==undefined?r.horas:(p.dias>0?Math.round((r.horas/p.dias)*10)/10:r.horas);allItems.push({id:r.id,tipo:'rol',label:r.nombre,cant:r.cantidad,jornadas:_j,horas:_h,sub:fM(r.cantidad*_j*_h*r.tarifa,r.moneda)});});
-  if(p.equipos)p.equipos.forEach(function(e){allItems.push({id:e.id,tipo:'equipo',label:e.nombre,cant:1,horas:0,sub:fM(e.monto,e.moneda)});});
-  if(p.extras)p.extras.forEach(function(x){allItems.push({id:x.id,tipo:'extra',label:x.nombre,cant:1,horas:0,sub:fM(x.monto,x.moneda)});});
-  document.getElementById('pdf-sel').innerHTML=allItems.map(function(it){
-    return '<label class="tgl" style="margin-bottom:7px;background:var(--sf);padding:8px 12px;border-radius:6px;border:1px solid var(--bd);">'+
-      '<input type="checkbox" checked data-iid="'+it.id+'" onchange="updPDF()">'+
-      '<div class="ttr"><div class="tth"></div></div>'+
-      '<span style="flex:1;font-size:12px">'+it.label+(it.tipo==='rol'?' ('+it.cant+'x '+it.horas+'hs)':'')+'</span>'+
-      '<span style="font-family:Courier New,monospace;font-size:11px;color:var(--mu2)">'+it.sub+'</span></label>';
-  }).join('');
+  var _mg=p.margen||0; var _mgF=1+_mg/100;
+  if(p.roles)p.roles.forEach(function(r){var _j=r.jornadas!==undefined?r.jornadas:(p.dias||1);var _h=r.jornadas!==undefined?r.horas:(p.dias>0?Math.round((r.horas/p.dias)*10)/10:r.horas);var _rawSub=r.cantidad*_j*_h*r.tarifa;allItems.push({id:r.id,tipo:'rol',label:r.nombre,cant:r.cantidad,jornadas:_j,horas:_h,sub:fM(_rawSub,r.moneda),rawSub:_rawSub,moneda:r.moneda,precio:Math.round(_rawSub*_mgF)});});
+  if(p.equipos)p.equipos.forEach(function(e){allItems.push({id:e.id,tipo:'equipo',label:e.nombre,cant:1,horas:0,sub:fM(e.monto,e.moneda),rawSub:e.monto,moneda:e.moneda,precio:Math.round(e.monto*_mgF)});});
+  if(p.extras)p.extras.forEach(function(x){allItems.push({id:x.id,tipo:'extra',label:x.nombre,cant:1,horas:0,sub:fM(x.monto,x.moneda),rawSub:x.monto,moneda:x.moneda,precio:Math.round(x.monto*_mgF)});});
+  document.getElementById('pdf-sel').innerHTML=
+    '<div style="font-size:10px;color:var(--mu);margin-bottom:8px;display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;padding:0 12px;">'+
+    '<span></span><span>ITEM</span><span style="text-align:right">COSTO INTERNO</span><span style="text-align:right;min-width:100px">PRECIO CLIENTE</span></div>'+
+    allItems.map(function(it){
+    return '<div style="display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:8px;margin-bottom:6px;background:var(--sf);padding:7px 12px;border-radius:6px;border:1px solid var(--bd);">'+
+      '<input type="checkbox" checked data-iid="'+it.id+'" onchange="updPDF()" style="margin:0;flex-shrink:0">'+
+      '<span style="font-size:12px">'+it.label+(it.tipo==='rol'?'<span style="color:var(--mu);font-size:10px;margin-left:4px;">'+it.jornadas+'j × '+it.horas+'h</span>':'')+' </span>'+
+      '<span style="font-family:Courier New,monospace;font-size:11px;color:var(--mu2);text-align:right">'+it.sub+'</span>'+
+      '<input type="number" value="'+it.precio+'" data-pid="'+it.id+'" oninput="updPrecio(this)" style="width:100px;font-size:12px;font-weight:600;color:var(--gold);text-align:right;">'+
+      '</div>';
+  }).join('')+
+  '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;margin-top:4px;background:var(--sf2);border-radius:6px;font-size:12px;">'+
+  '<span style="color:var(--mu)">Suma precios cliente</span>'+
+  '<span id="pdf-sum-check" style="font-family:Courier New,monospace;font-weight:700;color:var(--gold);">$ 0</span></div>'+
+  '<div style="font-size:10px;color:var(--mu);margin-top:6px;padding:0 4px;">Los precios cliente son editables. Por defecto incluyen el margen ('+Math.round(_mg)+'%). La suma debe coincidir con el total.</div>';
   window._pdfData={p:p,cli:cli,allItems:allItems};
+  // Init sum check
+  var _initSum=allItems.reduce(function(s,it){return s+it.precio;},0);
+  var _initEl=document.getElementById('pdf-sum-check');
+  if(_initEl){
+    _initEl.textContent=fARS(_initSum);
+    var _initTot=calcTotal(p);
+    _initEl.style.color=Math.abs(_initSum-_initTot)<1?'var(--green)':'var(--gold)';
+  }
   // Load saved contact data
   if(S.contacto){
     if(document.getElementById('pdf-tel'))document.getElementById('pdf-tel').value=S.contacto.tel||'';
@@ -1365,6 +1382,24 @@ window.abrirPDF=function(){
   document.getElementById('m-pdf').classList.add('open');
 };
 
+window.updPrecio=function(el){
+  var id=el.dataset.pid;
+  var val=parseFloat(el.value)||0;
+  window._pdfPrices[id]=val;
+  // Update sum indicator
+  var sum=0;
+  Object.values(window._pdfPrices||{}).forEach(function(v){sum+=v;});
+  var chk=document.querySelectorAll('#pdf-sel input[data-iid]:checked');
+  var sumVis=0;
+  chk.forEach(function(c){sumVis+=(window._pdfPrices[c.dataset.iid]||0);});
+  var el2=document.getElementById('pdf-sum-check');
+  if(el2){
+    el2.textContent=fARS(sumVis);
+    var liveTot=window._pdfData?calcTotal(window._pdfData.p):0;
+    el2.style.color=Math.abs(sumVis-liveTot)<1?'var(--green)':'var(--gold)';
+  }
+  updPDF();
+};
 function calcTotal(p){
   // Always recalculate from roles to avoid stale Firestore values
   var a=0,u=0;
@@ -1383,6 +1418,14 @@ window.updPDF=function(){
   var d=window._pdfData;if(!d)return;
   var p=d.p,cli=d.cli,allItems=d.allItems;
   var chk=Array.from(document.querySelectorAll('#pdf-sel input[data-iid]:checked')).map(function(i){return i.dataset.iid;});
+  // Update sum indicator
+  var _sumVis=chk.reduce(function(s,id){return s+(window._pdfPrices&&window._pdfPrices[id]||0);},0);
+  var _sumEl=document.getElementById('pdf-sum-check');
+  if(_sumEl){
+    _sumEl.textContent=fARS(_sumVis);
+    var _liveTot=window._pdfData?calcTotal(window._pdfData.p):0;
+    _sumEl.style.color=Math.abs(_sumVis-_liveTot)<1?'var(--green)':'var(--gold)';
+  }
   var showTot=document.getElementById('pdf-tot')&&document.getElementById('pdf-tot').checked;
   var showSub=document.getElementById('pdf-sub')&&document.getElementById('pdf-sub').checked;
   var showJorn=document.getElementById('pdf-jornadas')&&document.getElementById('pdf-jornadas').checked;
@@ -1428,7 +1471,7 @@ window.updPDF=function(){
         '<td style="padding:10px 8px;vertical-align:top;font-weight:700;color:#111;">'+it.cant+'</td>'+
         '<td style="padding:10px 8px;vertical-align:top;"><div style="font-weight:600;color:#111;">'+it.label+'</div>'+
         (it.tipo==='rol'&&showJorn?'<div style="color:#888;font-size:11px;">'+(it.jornadas||1)+' jornada'+((it.jornadas||1)!==1?'s':'')+' × '+it.horas+' hs/día</div>':'')+'</td>'+
-        (showSub?'<td style="padding:10px 8px;text-align:right;font-weight:700;color:#111;">'+it.sub+'</td>':'')+
+        (showSub?'<td style="padding:10px 8px;text-align:right;font-weight:700;color:#111;">'+fARS(window._pdfPrices&&window._pdfPrices[it.id]!=null?window._pdfPrices[it.id]:parseFloat(it.sub.replace(/[^0-9]/g,''))||0)+'</td>':'')+
         '</tr>';
     }).join('')+
     '</tbody></table>'+
