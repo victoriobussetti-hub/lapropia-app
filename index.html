@@ -614,6 +614,8 @@ document.addEventListener('DOMContentLoaded', function(){
         <label class="tgl"><input type="checkbox" checked id="pdf-tot" onchange="updPDF()"><div class="ttr"><div class="tth"></div></div>Mostrar total final</label>
         <label class="tgl"><input type="checkbox" id="pdf-sub" onchange="updPDF()"><div class="ttr"><div class="tth"></div></div>Mostrar subtotales por item</label>
         <label class="tgl"><input type="checkbox" checked id="pdf-jornadas" onchange="updPDF()"><div class="ttr"><div class="tth"></div></div>Mostrar detalle de jornadas/horas</label>
+        <label class="tgl"><input type="checkbox" checked id="pdf-cli-nombre" onchange="updPDF()"><div class="ttr"><div class="tth"></div></div>Mostrar nombre corto del cliente</label>
+        <label class="tgl"><input type="checkbox" checked id="pdf-cli-contacto" onchange="updPDF()"><div class="ttr"><div class="tth"></div></div>Mostrar nombre completo del cliente</label>
       </div>
     </div>
   </div>
@@ -1418,6 +1420,9 @@ window.updPDF=function(){
   var d=window._pdfData;if(!d)return;
   var p=d.p,cli=d.cli,allItems=d.allItems;
   var chk=Array.from(document.querySelectorAll('#pdf-sel input[data-iid]:checked')).map(function(i){return i.dataset.iid;});
+  var showCliNombre=document.getElementById('pdf-cli-nombre')?document.getElementById('pdf-cli-nombre').checked:true;
+  var showCliContacto=document.getElementById('pdf-cli-contacto')?document.getElementById('pdf-cli-contacto').checked:true;
+  var _totalCliente=chk.reduce(function(s,id){return s+(window._pdfPrices&&window._pdfPrices[id]!=null?window._pdfPrices[id]:0);},0);
   // Update sum indicator
   var _sumVis=chk.reduce(function(s,id){return s+(window._pdfPrices&&window._pdfPrices[id]||0);},0);
   var _sumEl=document.getElementById('pdf-sum-check');
@@ -1465,8 +1470,8 @@ window.updPDF=function(){
           (cli?
             '<div style="padding:14px;background:#f9f9f9;border-left:3px solid #F8BA3B;margin-bottom:16px;">'+
               '<div style="font-size:9px;font-weight:700;letter-spacing:.1em;color:#999;margin-bottom:5px;">PARA</div>'+
-              '<div style="font-weight:700;font-size:12.5px;color:#111;">'+cli.nombre+'</div>'+
-              (cli.contacto?'<div style="color:#666;margin-top:2px;">'+cli.contacto+'</div>':'')+
+              (showCliNombre?'<div style="font-weight:700;font-size:12.5px;color:#111;">'+cli.nombre+'</div>':'')+
+              (showCliContacto&&cli.contacto?'<div style="color:#666;margin-top:2px;">'+cli.contacto+'</div>':'')+
               (cli.email?'<div style="color:#666;font-size:10.5px;word-break:break-all;">'+cli.email+'</div>':'')+
             '</div>'
           :'')+
@@ -1503,7 +1508,7 @@ window.updPDF=function(){
             '<div style="margin-top:24px;display:flex;justify-content:flex-end;">'+
               '<div style="background:#000;padding:14px 20px;min-width:200px;display:flex;justify-content:space-between;align-items:center;gap:24px;">'+
                 '<div style="font-size:9px;font-weight:700;letter-spacing:.14em;color:#F8BA3B;">TOTAL</div>'+
-                '<div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-.01em;">'+fARS(calcTotal(p))+'</div>'+
+                '<div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-.01em;">'+fARS(_totalCliente)+'</div>'+
               '</div>'+
             '</div>'
           :'')+
