@@ -1365,6 +1365,9 @@ window.abrirPDF=function(){
   '<span id="pdf-sum-check" style="font-family:Courier New,monospace;font-weight:700;color:var(--gold);">$ 0</span></div>'+
   '<div style="font-size:10px;color:var(--mu);margin-top:6px;padding:0 4px;">Los precios cliente son editables. Por defecto incluyen el margen ('+Math.round(_mg)+'%). La suma debe coincidir con el total.</div>';
   window._pdfData={p:p,cli:cli,allItems:allItems};
+  // Init _pdfPrices with default values (precio con margen)
+  window._pdfPrices={};
+  allItems.forEach(function(it){window._pdfPrices[it.id]=it.precio;});
   // Init sum check
   var _initSum=allItems.reduce(function(s,it){return s+it.precio;},0);
   var _initEl=document.getElementById('pdf-sum-check');
